@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Create Account — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="https://images.unsplash.com/photo-1618221195710-dd6b41faaea6?auto=format&fit=crop&w=900&q=80" alt="A styled living space" onerror="this.onerror=null;this.src='https://picsum.photos/seed/register/900/1100'" />
+      <div class="overlay">
+        <div>
+          <h2>Join the CasaNest family</h2>
+          <p>Create an account for 10% off your first order, saved wishlists and faster checkout.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <form class="auth-form" id="registerForm" novalidate>
+        <h1>Create account</h1>
+        <p>It only takes a moment.</p>
+
+        <div class="field">
+          <label for="name">Full name</label>
+          <input id="name" required placeholder="Jane Doe" autocomplete="name" />
+          <span class="err">Please enter your name.</span>
+        </div>
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" required placeholder="you@example.com" autocomplete="email" />
+          <span class="err">Please enter a valid email.</span>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" required placeholder="At least 6 characters" autocomplete="new-password" />
+          <span class="err">Password must be at least 6 characters.</span>
+        </div>
+        <div class="field">
+          <label for="confirm">Confirm password</label>
+          <input id="confirm" type="password" required placeholder="Re-enter password" autocomplete="new-password" />
+          <span class="err">Passwords don't match.</span>
+        </div>
+
+        <label class="checkbox" style="margin-bottom:20px;font-size:13px">
+          <input type="checkbox" id="terms" /> I agree to the Terms &amp; Privacy Policy
+        </label>
+        <p class="field" style="margin-top:-14px"><span class="err" id="termsErr">Please accept the terms to continue.</span></p>
+
+        <button class="btn btn--primary btn--block" type="submit">Create account</button>
+
+        <p class="auth-alt">Already have an account? <a href="login.html">Sign in</a></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    const form = $("#registerForm");
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      let valid = true;
+      const name = $("#name"), email = $("#email"), pass = $("#password"), confirm = $("#confirm"), terms = $("#terms");
+
+      const checks = [
+        [name, name.value.trim().length > 1],
+        [email, emailOk(email.value.trim())],
+        [pass, pass.value.length >= 6],
+        [confirm, confirm.value === pass.value && confirm.value.length >= 6]
+      ];
+      checks.forEach(([el, ok]) => { el.closest(".field").classList.toggle("invalid", !ok); if (!ok) valid = false; });
+
+      // terms
+      const termsErr = $("#termsErr");
+      termsErr.style.display = terms.checked ? "none" : "block";
+      if (!terms.checked) valid = false;
+
+      if (!valid) return;
+
+      const submitBtn = form.querySelector('button[type="submit"]');
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Creating account…";
+      try {
+        await Auth.register(name.value.trim(), email.value.trim(), pass.value);
+
+        // A brand-new account has no server cart yet, so push up whatever
+        // was built as a guest (in localStorage) before signing up.
+        if (Store.cart.length || Store.wishlist.length) {
+          try { await CartSync.push(Store.cart, Store.wishlist); } catch (_) {}
+        }
+
+        toast("Account created — welcome to CasaNest!");
+        setTimeout(() => location.href = "index.html", 900);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Create account";
+        toast(err.message || "Could not create account");
+      }
+    });
+
+    $$("#registerForm input").forEach((el) => el.addEventListener("input", () => {
+      el.closest(".field")?.classList.remove("invalid");
+      if (el.id === "terms") $("#termsErr").style.display = "none";
+    }));
+  </script>
+</body>
+</html>

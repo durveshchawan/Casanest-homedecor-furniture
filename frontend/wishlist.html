@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Wishlist — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="crumbs"><a href="index.html">Home</a> / <span>Wishlist</span></p>
+      <h1>Your Wishlist</h1>
+      <p class="lead" style="margin-inline:auto">The pieces you're dreaming about — saved for later.</p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:clamp(32px,4vw,56px)">
+    <div class="wrap">
+      <div id="wishActions" class="shop-toolbar" hidden>
+        <span class="count" id="wishCount"></span>
+        <button class="btn btn--primary btn--sm" id="moveAll">Move all to cart</button>
+      </div>
+      <div class="product-grid" id="wishGrid"></div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    function render() {
+      const items = Store.wishlist.map(getProduct).filter(Boolean);
+      const grid = $("#wishGrid"), actions = $("#wishActions");
+
+      if (!items.length) {
+        actions.hidden = true;
+        grid.innerHTML = `
+          <div class="empty" style="grid-column:1/-1">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 21s-7-4.5-9.5-9A5 5 0 0 1 12 6a5 5 0 0 1 9.5 6c-2.5 4.5-9.5 9-9.5 9Z"/></svg>
+            <h3>Your wishlist is empty</h3>
+            <p>Tap the heart on any product to save it here.</p>
+            <a href="shop.html" class="btn btn--primary">Browse the collection</a>
+          </div>`;
+        return;
+      }
+
+      actions.hidden = false;
+      $("#wishCount").textContent = `${items.length} saved item${items.length !== 1 ? "s" : ""}`;
+
+      // Reuse the product card, then add a "move to cart" button under each
+      grid.innerHTML = items.map((p) => {
+        const card = productCard(p);
+        // inject a move-to-cart button before the closing article via string swap on card-body
+        return card.replace("</div>\n  </article>",
+          `</div>
+          <div style="padding:0 18px 18px"><button class="btn btn--ghost btn--block btn--sm js-move" data-id="${p.id}">Move to cart</button></div>
+        </article>`);
+      }).join("");
+
+      initReveals();
+    }
+
+    // One delegated listener on the grid (bound once; render only swaps innerHTML)
+    $("#wishGrid").addEventListener("click", (e) => {
+      const moveBtn = e.target.closest(".js-move");
+      if (moveBtn) {
+        const id = moveBtn.dataset.id;
+        Store.addToCart(id);
+        Store.toggleWishlist(id); // remove from wishlist after moving to cart
+        render();
+        return;
+      }
+      const card = e.target.closest(".card");
+      if (!card) return;
+      const id = card.dataset.id;
+      if (e.target.closest(".js-add")) { const p = getProduct(id); if (p && p.stock) Store.addToCart(id); }
+      else if (e.target.closest(".js-quick")) openQuickView(id);
+      else if (e.target.closest(".js-wish")) { Store.toggleWishlist(id); render(); } // heart removes it
+    });
+
+    // Move all in-stock items to cart
+    $("#moveAll").addEventListener("click", () => {
+      const inStock = (id) => getProduct(id)?.stock;
+      [...Store.wishlist].forEach((id) => { if (inStock(id)) Store.addToCart(id); });
+      Store.wishlist = Store.wishlist.filter((id) => !inStock(id));
+      Store.save();
+      toast("Moved to cart");
+      render();
+    });
+
+    render();
+    // Redraw with the live catalogue (includes products added in the admin panel)
+    document.addEventListener("products:updated", render);
+  </script>
+</body>
+</html>

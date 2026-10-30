@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sign In — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="auth">
+    <div class="auth-media">
+      <img src="https://images.unsplash.com/photo-1567538096630-e0c55bd6374c?auto=format&fit=crop&w=900&q=80" alt="A warmly lit interior" onerror="this.onerror=null;this.src='https://picsum.photos/seed/login/900/1100'" />
+      <div class="overlay">
+        <div>
+          <h2>Welcome back to CasaNest</h2>
+          <p>Sign in to track orders, revisit your wishlist and check out faster.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <form class="auth-form" id="loginForm" novalidate>
+        <h1>Sign in</h1>
+        <p>Good to see you again.</p>
+
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" required placeholder="you@example.com" autocomplete="email" />
+          <span class="err">Please enter a valid email.</span>
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" required placeholder="••••••••" autocomplete="current-password" />
+          <span class="err">Password must be at least 6 characters.</span>
+        </div>
+
+        <div class="auth-row">
+          <label class="checkbox"><input type="checkbox" /> Remember me</label>
+          <a href="#">Forgot password?</a>
+        </div>
+
+        <button class="btn btn--primary btn--block" type="submit">Sign in</button>
+
+        <div class="divider">or continue with</div>
+        <div style="display:flex;gap:10px">
+          <button type="button" class="btn btn--ghost btn--block btn--sm">Google</button>
+          <button type="button" class="btn btn--ghost btn--block btn--sm">Apple</button>
+        </div>
+
+        <p class="auth-alt">New to CasaNest? <a href="register.html">Create an account</a></p>
+      </form>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+    const form = $("#loginForm");
+    const submitBtn = form.querySelector('button[type="submit"]');
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      let valid = true;
+      const email = $("#email"), pass = $("#password");
+      const test = [[email, emailOk(email.value.trim())], [pass, pass.value.length >= 6]];
+      test.forEach(([el, ok]) => { el.closest(".field").classList.toggle("invalid", !ok); if (!ok) valid = false; });
+      if (!valid) return;
+
+      submitBtn.disabled = true;
+      submitBtn.textContent = "Signing in…";
+      try {
+        await Auth.login(email.value.trim(), pass.value);
+
+        // Merge the guest cart/wishlist (built up in localStorage before login)
+        // with whatever this account already has saved on the server.
+        // Store.save() inside mergeWith pushes the combined result back up.
+        try {
+          Store.mergeWith(await CartSync.pull());
+        } catch (_) { /* non-fatal — cart sync can retry later */ }
+
+        toast("Signed in — welcome back!");
+        setTimeout(() => location.href = "index.html", 900);
+      } catch (err) {
+        submitBtn.disabled = false;
+        submitBtn.textContent = "Sign in";
+        toast(err.message || "Could not sign in");
+      }
+    });
+    $$("#loginForm input").forEach((el) => el.addEventListener("input", () => el.closest(".field").classList.remove("invalid")));
+  </script>
+</body>
+</html>

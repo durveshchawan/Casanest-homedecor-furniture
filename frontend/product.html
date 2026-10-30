@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Product — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="section" style="padding-top:clamp(32px,4vw,52px)">
+    <div class="wrap">
+      <p class="crumbs" id="crumbs" style="margin-bottom:26px"></p>
+      <div class="pdp" id="pdp"><!-- injected --></div>
+
+      <!-- Tabs: description / specs / reviews -->
+      <div class="pdp-tabs" id="pdpTabs" hidden>
+        <div class="tab-heads">
+          <button class="tab-head active" data-tab="desc">Description</button>
+          <button class="tab-head" data-tab="specs">Specifications</button>
+          <button class="tab-head" data-tab="reviews">Reviews</button>
+        </div>
+        <div class="tab-panel active" data-panel="desc" id="panelDesc"></div>
+        <div class="tab-panel" data-panel="specs"><table class="spec-table" id="specTable"></table></div>
+        <div class="tab-panel" data-panel="reviews" id="panelReviews"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- RELATED -->
+  <section class="section section--tint">
+    <div class="wrap">
+      <div class="section-head center"><span class="eyebrow">You may also like</span><h2>Related pieces</h2></div>
+      <div class="product-grid" id="related"></div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    const id = new URLSearchParams(location.search).get("id");
+    let p = null; // the product currently shown
+
+    // Fake reviews
+    const reviewers = [
+      ["Sophie L.", 32, 5, "Exactly as pictured", "Beautiful quality and it arrived well packaged. Would buy from CasaNest again."],
+      ["Marcus D.", 51, 5, "A real statement piece", "Gets compliments every time we have guests over. Worth every penny."],
+      ["Aisha K.", 47, 4, "Lovely, slightly smaller than expected", "Gorgeous item — just double-check the dimensions before ordering."]
+    ];
+
+    // Shown while waiting for the live catalogue, or when the id matches nothing
+    function renderMissing() {
+      $("#pdpTabs").hidden = true;
+      $("#related").innerHTML = "";
+      $("#crumbs").innerHTML = `<a href="index.html">Home</a> / <a href="shop.html">Shop</a>`;
+      $("#pdp").innerHTML = catalogSettled
+        ? `<div class="empty" style="grid-column:1/-1">
+             <h3>Product not found</h3>
+             <p>It may have been removed from the collection.</p>
+             <a href="shop.html" class="btn btn--primary">Browse the collection</a>
+           </div>`
+        : `<div class="empty" style="grid-column:1/-1"><p>Loading product…</p></div>`;
+    }
+
+    function renderProduct() {
+      // No id → show the first product; an unknown id may be a product added in
+      // the admin panel, so it's only "not found" once the live catalogue is in
+      p = id ? getProduct(id) : PRODUCTS[0];
+      if (!p) return renderMissing();
+
+      const off = p.oldPrice ? Math.round((1 - p.price / p.oldPrice) * 100) : 0;
+      const images = p.images && p.images.length ? p.images : [productImage(p)];
+      const colors = p.colors || [];
+      const specs = p.specs || {};
+      document.title = `${p.name} — CasaNest`;
+
+      $("#crumbs").innerHTML = `<a href="index.html">Home</a> / <a href="shop.html?cat=${encodeURIComponent(p.category)}">${p.category}</a> / <span>${p.name}</span>`;
+
+      // Main layout
+      $("#pdp").innerHTML = `
+        <div>
+          <div class="gallery-main"><img id="mainImg" src="${images[0]}" alt="${p.name}" onerror="this.onerror=null;this.src='${imgFallback(p.id)}'"></div>
+          <div class="thumbs" id="thumbs">
+            ${images.map((src, i) => `<button class="${i === 0 ? "active" : ""}" data-i="${i}"><img src="${src}" alt="${p.name} view ${i + 1}" onerror="this.onerror=null;this.src='${imgFallback(p.id + '-' + i)}'"></button>`).join("")}
+          </div>
+        </div>
+        <div class="pdp-info">
+          <span class="card-cat">${p.category}</span>
+          <h1>${p.name}</h1>
+          <div class="pdp-rating"><span class="stars">${stars(p.rating)}</span> ${p.rating} · <a href="#reviews" style="color:var(--brown)">${p.reviews} reviews</a>
+            <span style="margin-left:auto" class="stock ${p.stock ? "in" : "out"}">${p.stock ? "● In stock" : "● Out of stock"}</span>
+          </div>
+          <div class="pdp-price">
+            <span class="price">${money(p.price)}</span>
+            ${p.oldPrice ? `<span class="price-old">${money(p.oldPrice)}</span><span class="save">Save ${off}%</span>` : ""}
+          </div>
+          <p class="pdp-desc">${p.desc || ""}</p>
+
+          ${colors.length ? `
+          <div class="opt-block">
+            <div class="label">Colour: <span id="colorName" style="color:var(--muted);text-transform:none;letter-spacing:0">${colors[0].name}</span></div>
+            <div class="swatches" id="swatches">
+              ${colors.map((c, i) => `<button class="swatch ${i === 0 ? "active" : ""}" data-name="${c.name}" style="background:${c.hex}" title="${c.name}" aria-label="${c.name}"></button>`).join("")}
+            </div>
+          </div>` : ""}
+
+          <div class="opt-block">
+            <div class="label">Quantity</div>
+            <div class="qty">
+              <button id="qtyMinus" aria-label="Decrease">−</button>
+              <input id="qtyInput" type="number" value="1" min="1" max="${MAX_PER_PRODUCT}" aria-label="Quantity">
+              <button id="qtyPlus" aria-label="Increase">+</button>
+            </div>
+          </div>
+
+          <div class="pdp-actions">
+            <button class="btn btn--primary" id="addBtn" ${p.stock && !Store.isMaxed(p.id) ? "" : "disabled"}>${p.stock && !Store.isMaxed(p.id) ? "Add to cart" : "Out of stock"}</button>
+            <button class="btn btn--ghost" id="wishBtn">${Store.inWishlist(p.id) ? "♥ Saved" : "♡ Wishlist"}</button>
+          </div>
+
+          <div class="pdp-meta">
+            <span>${icon("truck")} <b>Free shipping</b> on orders over ₹12,000</span>
+            <span>${icon("return")} <b>30-day returns</b>, no questions asked</span>
+            <span>${icon("shield")} <b>2-year warranty</b> included</span>
+          </div>
+        </div>`;
+
+      // Gallery thumbs
+      $("#thumbs").addEventListener("click", (e) => {
+        const b = e.target.closest("button"); if (!b) return;
+        $$("#thumbs button").forEach((x) => x.classList.remove("active"));
+        b.classList.add("active");
+        $("#mainImg").src = images[b.dataset.i];
+      });
+
+      // Swatches
+      if (colors.length) {
+        $("#swatches").addEventListener("click", (e) => {
+          const b = e.target.closest(".swatch"); if (!b) return;
+          $$("#swatches .swatch").forEach((x) => x.classList.remove("active"));
+          b.classList.add("active");
+          $("#colorName").textContent = b.dataset.name;
+        });
+      }
+
+      // Quantity (capped so the cart never holds more than MAX_PER_PRODUCT of this item)
+      const qtyInput = $("#qtyInput");
+      $("#qtyMinus").addEventListener("click", () => qtyInput.value = clampQty(+qtyInput.value - 1));
+      $("#qtyPlus").addEventListener("click", () => {
+        if (+qtyInput.value >= Store.remaining(p.id)) toast(`Only ${MAX_PER_PRODUCT} units available per product`);
+        qtyInput.value = clampQty(+qtyInput.value + 1);
+      });
+      qtyInput.addEventListener("change", () => qtyInput.value = clampQty(qtyInput.value));
+
+      // Add / wishlist
+      $("#addBtn").addEventListener("click", () => {
+        if (!p.stock || Store.isMaxed(p.id)) return;
+        const color = colors.length ? $("#colorName").textContent : null;
+        Store.addToCart(p.id, +qtyInput.value, color);
+      });
+      $("#wishBtn").addEventListener("click", (e) => {
+        const active = Store.toggleWishlist(p.id);
+        e.target.textContent = active ? "♥ Saved" : "♡ Wishlist";
+      });
+
+      // Tabs content
+      $("#pdpTabs").hidden = false;
+      $("#panelDesc").innerHTML = `
+        <p style="max-width:70ch;color:var(--muted);font-size:15.5px;line-height:1.9">${p.desc || ""}
+        Every CasaNest piece is chosen for how it feels to live with — the weight of it, the way it catches the light, the way it ages.
+        This item is crafted from ${(specs.Material || "premium materials").toLowerCase()} and finished by hand.</p>`;
+
+      $("#specTable").innerHTML = Object.entries(specs)
+        .map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`).join("");
+
+      $("#panelReviews").innerHTML = `<div id="reviews">` + reviewers.map(([name, av, r, title, body]) => `
+        <div class="review">
+          <img src="https://i.pravatar.cc/100?img=${av}" alt="${name}" onerror="this.onerror=null;this.src='https://picsum.photos/seed/rv${av}/100/100'">
+          <div>
+            <div class="stars">${stars(r)}</div>
+            <h5>${title}</h5>
+            <span class="when">${name} · Verified purchase</span>
+            <p>${body}</p>
+          </div>
+        </div>`).join("") + `</div>`;
+
+      // Related (same category, else random)
+      let related = PRODUCTS.filter((x) => x.category === p.category && x.id !== p.id);
+      if (related.length < 4) related = related.concat(PRODUCTS.filter((x) => x.id !== p.id && !related.includes(x)));
+      $("#related").innerHTML = related.slice(0, 4).map(productCard).join("");
+      initReveals();
+    }
+
+    const clampQty = (v) => Math.min(Math.max(1, +v || 1), Math.max(1, Store.remaining(p.id)));
+
+    // Flip the button to "Out of stock" once 10 are in the cart (and back if some are removed)
+    function syncPdpStock() {
+      const addBtn = $("#addBtn");
+      if (!p || !addBtn) return;
+      const ok = p.stock && !Store.isMaxed(p.id);
+      addBtn.disabled = !ok;
+      addBtn.textContent = ok ? "Add to cart" : "Out of stock";
+      $("#qtyInput").value = clampQty($("#qtyInput").value);
+    }
+
+    // Everything below lives outside #pdp / #related's contents, so bind it once
+    document.addEventListener("cart:updated", syncPdpStock);
+    bindCards($("#related"));
+    $(".tab-heads").addEventListener("click", (e) => {
+      const b = e.target.closest(".tab-head"); if (!b) return;
+      $$(".tab-head").forEach((x) => x.classList.remove("active"));
+      $$(".tab-panel").forEach((x) => x.classList.remove("active"));
+      b.classList.add("active");
+      $(`[data-panel="${b.dataset.tab}"]`).classList.add("active");
+    });
+
+    renderProduct();
+    // Redraw with the live catalogue (new products, edited prices); if it
+    // failed to load, an unknown id can now be reported as "not found"
+    document.addEventListener("products:updated", renderProduct);
+    document.addEventListener("products:settled", () => { if (!p) renderMissing(); });
+  </script>
+</body>
+</html>

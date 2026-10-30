@@ -1,0 +1,119 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Contact Us — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="crumbs"><a href="index.html">Home</a> / <span>Contact</span></p>
+      <h1>Get in Touch</h1>
+      <p class="lead" style="margin-inline:auto">Questions about an order, a product, or your space? We usually reply within one business day.</p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:clamp(32px,4vw,56px)">
+    <div class="wrap contact-grid">
+      <!-- INFO -->
+      <div class="contact-info">
+        <div class="info-card reveal">
+          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M12 21s-7-6-7-11a7 7 0 0 1 14 0c0 5-7 11-7 11Z"/><circle cx="12" cy="10" r="2.5"/></svg></span>
+          <div><b>Visit our studio</b><p>18 Maker's Lane, Design Quarter,<br>London, EC1V 9BW</p></div>
+        </div>
+        <div class="info-card reveal">
+          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 7 9 6 9-6"/></svg></span>
+          <div><b>Email us</b><p>hello@casanest.example<br>support@casanest.example</p></div>
+        </div>
+        <div class="info-card reveal">
+          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><path d="M5 4h4l2 5-3 2a12 12 0 0 0 5 5l2-3 5 2v4a2 2 0 0 1-2 2A16 16 0 0 1 3 6a2 2 0 0 1 2-2Z"/></svg></span>
+          <div><b>Call us</b><p>+44 20 7946 0123<br>Mon–Fri, 9am–6pm</p></div>
+        </div>
+        <div class="info-card reveal">
+          <span class="ic"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+          <div><b>Opening hours</b><p>Mon–Sat: 9am – 6pm<br>Sunday: Closed</p></div>
+        </div>
+      </div>
+
+      <!-- FORM -->
+      <form class="contact-form reveal" id="contactForm" novalidate>
+        <h2 style="font-size:26px;margin-bottom:6px">Send a message</h2>
+        <p style="color:var(--muted);margin-bottom:26px">Fill in the form and we'll be in touch shortly.</p>
+        <div class="form-2">
+          <div class="field">
+            <label for="cName">Full name</label>
+            <input id="cName" required placeholder="Jane Doe" />
+            <span class="err">Please enter your name.</span>
+          </div>
+          <div class="field">
+            <label for="cEmail">Email</label>
+            <input id="cEmail" type="email" required placeholder="jane@example.com" />
+            <span class="err">Please enter a valid email.</span>
+          </div>
+        </div>
+        <div class="field">
+          <label for="cSubject">Subject</label>
+          <input id="cSubject" required placeholder="How can we help?" />
+          <span class="err">Please add a subject.</span>
+        </div>
+        <div class="field">
+          <label for="cMessage">Message</label>
+          <textarea id="cMessage" required placeholder="Tell us a little about what you're looking for…"></textarea>
+          <span class="err">Please write a message.</span>
+        </div>
+        <button class="btn btn--primary btn--block" type="submit">Send message</button>
+      </form>
+    </div>
+
+    <div class="wrap">
+      <div class="map reveal">
+        <iframe title="CasaNest location" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=-0.115%2C51.515%2C-0.085%2C51.528&layer=mapnik&marker=51.5215%2C-0.100"></iframe>
+      </div>
+    </div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    const form = $("#contactForm");
+    const emailOk = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+
+    form.addEventListener("submit", (e) => {
+      e.preventDefault();
+      let valid = true;
+      const checks = [
+        ["cName", (v) => v.trim().length > 1],
+        ["cEmail", (v) => emailOk(v.trim())],
+        ["cSubject", (v) => v.trim().length > 1],
+        ["cMessage", (v) => v.trim().length > 4]
+      ];
+      checks.forEach(([id, test]) => {
+        const input = $("#" + id);
+        const field = input.closest(".field");
+        const good = test(input.value);
+        field.classList.toggle("invalid", !good);
+        if (!good) valid = false;
+      });
+      if (valid) {
+        form.reset();
+        toast("Thanks — your message has been sent");
+      }
+    });
+
+    // Clear error as the user types
+    $$("#contactForm input, #contactForm textarea").forEach((el) =>
+      el.addEventListener("input", () => el.closest(".field").classList.remove("invalid")));
+  </script>
+</body>
+</html>

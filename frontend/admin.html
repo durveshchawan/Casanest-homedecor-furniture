@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="crumbs"><a href="index.html">Home</a> / <span>Admin</span></p>
+      <h1>Admin Panel</h1>
+      <p class="lead" style="margin-inline:auto">Manage the catalogue, keep orders moving and look after your customers.</p>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:clamp(32px,4vw,56px)">
+    <div class="wrap">
+      <!-- Shown instead of the panel when the visitor isn't an admin / the API is down -->
+      <div class="empty" id="gate" hidden></div>
+
+      <div id="panel" hidden>
+        <div class="admin-stats">
+          <div class="admin-stat"><span>Products</span><b id="statProducts">–</b></div>
+          <div class="admin-stat"><span>Orders</span><b id="statOrders">–</b></div>
+          <div class="admin-stat"><span>Revenue</span><b id="statRevenue">–</b></div>
+          <div class="admin-stat"><span>Customers</span><b id="statUsers">–</b></div>
+        </div>
+
+        <div class="tabs admin-tabs" role="tablist">
+          <button class="tab active" data-tab="products" role="tab">Products</button>
+          <button class="tab" data-tab="orders" role="tab">Orders</button>
+          <button class="tab" data-tab="users" role="tab">Users</button>
+        </div>
+
+        <!-- Products -->
+        <div class="tab-panel active" data-panel="products">
+          <div class="shop-toolbar">
+            <span class="count" id="productCount"></span>
+            <div style="display:flex;gap:10px;flex-wrap:wrap">
+              <select class="select" id="productCat" aria-label="Filter by category">
+                <option value="">All categories</option>
+              </select>
+              <button class="btn btn--primary btn--sm" id="addProduct">+ Add product</button>
+            </div>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th></th><th>Product</th><th>Category</th><th>Price</th><th>Stock</th><th></th></tr>
+              </thead>
+              <tbody id="productRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Orders -->
+        <div class="tab-panel" data-panel="orders">
+          <div class="shop-toolbar">
+            <span class="count" id="orderCount"></span>
+            <select class="select" id="orderFilter" aria-label="Filter by status">
+              <option value="">All statuses</option>
+            </select>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>Order</th><th>Customer</th><th>Ship to</th><th>Items</th><th>Total</th><th>Placed</th><th>Status</th></tr>
+              </thead>
+              <tbody id="orderRows"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Users -->
+        <div class="tab-panel" data-panel="users">
+          <div class="shop-toolbar">
+            <span class="count" id="userCount"></span>
+          </div>
+          <div class="admin-table-wrap">
+            <table class="admin-table">
+              <thead>
+                <tr><th>Name</th><th>Email</th><th>Joined</th><th>Wishlist</th><th>Role</th></tr>
+              </thead>
+              <tbody id="userRows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Add / edit product -->
+  <div class="modal-backdrop" id="productModal">
+    <div class="modal modal--form" role="dialog" aria-modal="true" aria-labelledby="productFormTitle">
+      <button class="modal-close" type="button" data-close aria-label="Close"></button>
+      <form class="modal-body" id="productForm" novalidate>
+        <h3 id="productFormTitle">Add product</h3>
+
+        <div class="form-2">
+          <div class="field">
+            <label for="f-id">Product ID</label>
+            <input id="f-id" required placeholder="e.g. p25" />
+            <span class="err">An ID is required.</span>
+          </div>
+          <div class="field">
+            <label for="f-category">Category</label>
+            <select id="f-category" required></select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-name">Name</label>
+          <input id="f-name" required placeholder="Halden Boucle Armchair" />
+          <span class="err">A name is required.</span>
+        </div>
+        <div class="form-3">
+          <div class="field">
+            <label for="f-price">Price (₹)</label>
+            <input id="f-price" type="number" min="0" step="1" required />
+            <span class="err">Enter a price.</span>
+          </div>
+          <div class="field">
+            <label for="f-oldPrice">Old price (₹)</label>
+            <input id="f-oldPrice" type="number" min="0" step="1" placeholder="0" />
+          </div>
+          <div class="field">
+            <label for="f-badge">Badge</label>
+            <select id="f-badge">
+              <option value="">None</option>
+              <option value="sale">Sale</option>
+              <option value="new">New</option>
+            </select>
+          </div>
+        </div>
+        <div class="field">
+          <label for="f-images">Image URLs</label>
+          <textarea id="f-images" placeholder="https://…"></textarea>
+          <p class="hint">One URL per line. The first one is the main image.</p>
+        </div>
+        <div class="field">
+          <label for="f-desc">Description</label>
+          <textarea id="f-desc"></textarea>
+        </div>
+        <div class="form-2">
+          <div class="field">
+            <label for="f-colors">Colours</label>
+            <textarea id="f-colors" placeholder="Cream #EDE6D8"></textarea>
+            <p class="hint">One per line: name, then hex.</p>
+          </div>
+          <div class="field">
+            <label for="f-specs">Specs</label>
+            <textarea id="f-specs" placeholder="Material: Solid oak"></textarea>
+            <p class="hint">One per line: <b>Key: Value</b>.</p>
+          </div>
+        </div>
+        <label class="checkbox" style="margin-bottom:18px"><input type="checkbox" id="f-stock" checked /> In stock</label>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn--ghost btn--sm" data-close>Cancel</button>
+          <button type="submit" class="btn btn--primary btn--sm" id="saveProduct">Save product</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    const ORDER_STATUSES = ["pending", "processing", "shipped", "delivered", "cancelled"];
+    const state = { products: [], orders: [], users: [], me: null, editingId: null };
+
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+    const date = (d) => new Date(d).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" });
+    const plural = (n, word) => `${n} ${word}${n !== 1 ? "s" : ""}`;
+
+    /* ---------- Access gate ---------- */
+    function showGate(title, text, cta) {
+      $("#panel").hidden = true;
+      const gate = $("#gate");
+      gate.hidden = false;
+      gate.innerHTML = `
+        <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M12 3l7 3v6c0 4-3 7-7 9-4-2-7-5-7-9V6l7-3Z"/></svg>
+        <h3>${title}</h3>
+        <p>${text}</p>
+        ${cta || ""}`;
+    }
+
+    async function init() {
+      if (!Auth.isLoggedIn()) {
+        return showGate("Sign in to continue", "The admin panel is only available to admin accounts.",
+          `<a href="login.html" class="btn btn--primary">Sign in</a>`);
+      }
+      try {
+        // Ask the server — the role cached in localStorage could be out of date
+        state.me = await Admin.me();
+      } catch (err) {
+        return showGate("Can't reach the server", `${esc(err.message)}. Make sure the backend is running on ${esc(API_BASE_URL.replace(/\/api$/, ""))}.`,
+          `<button class="btn btn--primary" onclick="location.reload()">Try again</button>`);
+      }
+      if (state.me.role !== "admin") {
+        return showGate("Admin access required", "Your account doesn't have admin rights. Ask an existing admin to promote you.",
+          `<a href="index.html" class="btn btn--primary">Back to the shop</a>`);
+      }
+
+      $("#gate").hidden = true;
+      $("#panel").hidden = false;
+      setupFilters();
+      await Promise.all([loadProducts(), loadOrders(), loadUsers()]);
+    }
+
+    /* ---------- Tabs ---------- */
+    $$(".admin-tabs .tab").forEach((btn) => btn.addEventListener("click", () => {
+      $$(".admin-tabs .tab").forEach((b) => b.classList.toggle("active", b === btn));
+      $$(".tab-panel[data-panel]").forEach((p) => p.classList.toggle("active", p.dataset.panel === btn.dataset.tab));
+    }));
+
+    function setupFilters() {
+      const catOptions = CATEGORIES.map((c) => `<option value="${esc(c)}">${esc(c)}</option>`).join("");
+      $("#productCat").insertAdjacentHTML("beforeend", catOptions);
+      $("#f-category").innerHTML = catOptions;
+      $("#orderFilter").insertAdjacentHTML("beforeend",
+        ORDER_STATUSES.map((s) => `<option value="${s}">${cap(s)}</option>`).join(""));
+      $("#productCat").addEventListener("change", renderProducts);
+      $("#orderFilter").addEventListener("change", renderOrders);
+    }
+
+    function renderStats() {
+      $("#statProducts").textContent = state.products.length;
+      $("#statOrders").textContent = state.orders.length;
+      const revenue = state.orders.filter((o) => o.status !== "cancelled").reduce((n, o) => n + o.total, 0);
+      $("#statRevenue").textContent = money(revenue);
+      $("#statUsers").textContent = state.users.filter((u) => u.role === "customer").length;
+    }
+
+    const emptyRow = (cols, text) => `<tr><td colspan="${cols}"><div class="empty-state">${text}</div></td></tr>`;
+
+    /* ---------- Products ---------- */
+    async function loadProducts() {
+      try {
+        state.products = await Admin.products.list();
+      } catch (err) {
+        toast(`Couldn't load products: ${err.message}`);
+      }
+      renderProducts();
+    }
+
+    function renderProducts() {
+      const cat = $("#productCat").value;
+      const list = state.products.filter((p) => !cat || p.category === cat);
+      $("#productCount").textContent = plural(list.length, "product");
+      renderStats();
+
+      if (!list.length) return $("#productRows").innerHTML = emptyRow(6, "No products here yet.");
+      $("#productRows").innerHTML = list.map((p) => `
+        <tr>
+          <td><img class="admin-thumb" src="${esc(p.images?.[0] || imgFallback(p.id))}" alt="" onerror="this.onerror=null;this.src='${imgFallback(esc(p.id))}'" /></td>
+          <td><div class="name">${esc(p.name)}</div><div class="meta">${esc(p.id)}${p.badge ? " · " + esc(cap(p.badge)) : ""}</div></td>
+          <td>${esc(p.category)}</td>
+          <td><span class="price">${money(p.price)}</span>${p.oldPrice ? ` <span class="price-old">${money(p.oldPrice)}</span>` : ""}</td>
+          <td><span class="flag ${p.stock ? "" : "out"}">${p.stock ? "In stock" : "Out of stock"}</span></td>
+          <td><div class="actions">
+            <button class="link-btn" data-edit="${esc(p.id)}">Edit</button>
+            <button class="link-btn danger" data-delete="${esc(p.id)}">${icon("trash")} Delete</button>
+          </div></td>
+        </tr>`).join("");
+    }
+
+    $("#productRows").addEventListener("click", async (e) => {
+      const edit = e.target.closest("[data-edit]");
+      const del = e.target.closest("[data-delete]");
+      if (edit) openProductForm(state.products.find((p) => p.id === edit.dataset.edit));
+      if (del) {
+        const p = state.products.find((x) => x.id === del.dataset.delete);
+        // Two-step delete instead of confirm(): first click arms the button, second click deletes
+        if (!del.dataset.armed) {
+          del.dataset.armed = "1";
+          del.innerHTML = `${icon("trash")} Click again to delete`;
+          setTimeout(() => { if (del.isConnected) { delete del.dataset.armed; del.innerHTML = `${icon("trash")} Delete`; } }, 3000);
+          return;
+        }
+        del.disabled = true;
+        try {
+          await Admin.products.remove(p.id);
+          state.products = state.products.filter((x) => x.id !== p.id);
+          renderProducts();
+          toast(`Deleted ${p.name}`);
+        } catch (err) {
+          del.disabled = false;
+          toast(err.message);
+        }
+      }
+    });
+
+    /* ---------- Product form ---------- */
+    const modal = $("#productModal");
+    $(".modal-close", modal).innerHTML = icon("close");
+    const closeForm = () => { modal.classList.remove("open"); document.body.style.overflow = ""; };
+    $$("[data-close]", modal).forEach((b) => b.addEventListener("click", closeForm));
+    modal.addEventListener("click", (e) => { if (e.target === modal) closeForm(); });
+    document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeForm(); });
+    $("#addProduct").addEventListener("click", () => openProductForm(null));
+
+    function openProductForm(p) {
+      state.editingId = p ? p.id : null;
+      $("#productFormTitle").textContent = p ? `Edit ${p.name}` : "Add product";
+      $("#f-id").value = p ? p.id : "";
+      $("#f-id").disabled = !!p; // the id is the product's key, so it can't change
+      $("#f-name").value = p ? p.name : "";
+      $("#f-category").value = p ? p.category : CATEGORIES[0];
+      $("#f-price").value = p ? p.price : "";
+      $("#f-oldPrice").value = p && p.oldPrice ? p.oldPrice : "";
+      $("#f-badge").value = p ? p.badge || "" : "";
+      $("#f-images").value = p ? (p.images || []).join("\n") : "";
+      $("#f-desc").value = p ? p.desc || "" : "";
+      $("#f-colors").value = p ? (p.colors || []).map((c) => `${c.name} ${c.hex}`).join("\n") : "";
+      $("#f-specs").value = p ? Object.entries(p.specs || {}).map(([k, v]) => `${k}: ${v}`).join("\n") : "";
+      $("#f-stock").checked = p ? !!p.stock : true;
+      $$("#productForm .field").forEach((f) => f.classList.remove("invalid"));
+      modal.classList.add("open");
+      document.body.style.overflow = "hidden";
+      (p ? $("#f-name") : $("#f-id")).focus();
+    }
+
+    const lines = (v) => v.split("\n").map((l) => l.trim()).filter(Boolean);
+
+    $("#productForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const id = $("#f-id"), name = $("#f-name"), price = $("#f-price");
+      let valid = true;
+      [[id, id.value.trim()], [name, name.value.trim()], [price, price.value !== "" && Number(price.value) >= 0]]
+        .forEach(([el, ok]) => { el.closest(".field").classList.toggle("invalid", !ok); if (!ok) valid = false; });
+      if (!valid) return;
+
+      const product = {
+        name: name.value.trim(),
+        category: $("#f-category").value,
+        price: Number(price.value),
+        oldPrice: Number($("#f-oldPrice").value) || 0,
+        badge: $("#f-badge").value,
+        stock: $("#f-stock").checked,
+        images: lines($("#f-images").value),
+        desc: $("#f-desc").value.trim(),
+        colors: lines($("#f-colors").value).map((l) => {
+          const hex = (l.match(/#[0-9a-f]{3,8}\b/i) || [""])[0];
+          return { name: l.replace(hex, "").trim() || hex, hex };
+        }),
+        specs: Object.fromEntries(lines($("#f-specs").value).map((l) => {
+          const i = l.indexOf(":");
+          return i === -1 ? [l, ""] : [l.slice(0, i).trim(), l.slice(i + 1).trim()];
+        }))
+      };
+
+      const btn = $("#saveProduct");
+      btn.disabled = true;
+      btn.textContent = "Saving…";
+      try {
+        if (state.editingId) {
+          const saved = await Admin.products.update(state.editingId, product);
+          state.products = state.products.map((p) => (p.id === saved.id ? saved : p));
+          toast(`Updated ${saved.name}`);
+        } else {
+          const saved = await Admin.products.create({ id: id.value.trim(), ...product });
+          state.products.unshift(saved);
+          toast(`Added ${saved.name}`);
+        }
+        renderProducts();
+        closeForm();
+      } catch (err) {
+        toast(err.message);
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Save product";
+      }
+    });
+
+    /* ---------- Orders ---------- */
+    async function loadOrders() {
+      try {
+        state.orders = await Admin.orders.list();
+      } catch (err) {
+        toast(`Couldn't load orders: ${err.message}`);
+      }
+      renderOrders();
+    }
+
+    // Orders placed before the address form existed have no address
+    function shipTo(a) {
+      if (!a || !a.line1) return `<span class="meta">No address</span>`;
+      return `<div>${esc(a.fullName)}</div>
+        <div class="meta">${esc(a.line1)}, ${esc(a.city)}, ${esc(a.state)} ${esc(a.postalCode)}</div>
+        <div class="meta">${esc(a.phone)}</div>`;
+    }
+
+    function renderOrders() {
+      const status = $("#orderFilter").value;
+      const list = state.orders.filter((o) => !status || o.status === status);
+      $("#orderCount").textContent = plural(list.length, "order");
+      renderStats();
+
+      if (!list.length) return $("#orderRows").innerHTML = emptyRow(7, "No orders yet.");
+      $("#orderRows").innerHTML = list.map((o) => {
+        const units = o.items.reduce((n, i) => n + i.qty, 0);
+        const summary = o.items.map((i) => `${i.qty} × ${i.name}`).join(", ");
+        return `
+        <tr>
+          <td><div class="name">#${esc(o._id.slice(-6).toUpperCase())}</div>${o.couponCode ? `<div class="meta">${esc(o.couponCode)}</div>` : ""}</td>
+          <td><div>${esc(o.user?.name || "Deleted user")}</div><div class="meta">${esc(o.user?.email || "")}</div></td>
+          <td>${shipTo(o.shippingAddress)}</td>
+          <td title="${esc(summary)}">${plural(units, "item")}</td>
+          <td><span class="price">${money(o.total)}</span></td>
+          <td>${date(o.createdAt)}</td>
+          <td>
+            <select class="select select--sm" data-order="${esc(o._id)}" aria-label="Order status">
+              ${ORDER_STATUSES.map((s) => `<option value="${s}" ${s === o.status ? "selected" : ""}>${cap(s)}</option>`).join("")}
+            </select>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    $("#orderRows").addEventListener("change", async (e) => {
+      const sel = e.target.closest("[data-order]");
+      if (!sel) return;
+      const order = state.orders.find((o) => o._id === sel.dataset.order);
+      const previous = order.status;
+      sel.disabled = true;
+      try {
+        const saved = await Admin.orders.setStatus(order._id, sel.value);
+        Object.assign(order, saved);
+        toast(`Order #${order._id.slice(-6).toUpperCase()} marked ${saved.status}`);
+        renderOrders();
+      } catch (err) {
+        sel.value = previous;
+        sel.disabled = false;
+        toast(err.message);
+      }
+    });
+
+    /* ---------- Users ---------- */
+    async function loadUsers() {
+      try {
+        state.users = await Admin.users.list();
+      } catch (err) {
+        toast(`Couldn't load users: ${err.message}`);
+      }
+      renderUsers();
+    }
+
+    function renderUsers() {
+      $("#userCount").textContent = plural(state.users.length, "user");
+      renderStats();
+
+      if (!state.users.length) return $("#userRows").innerHTML = emptyRow(5, "No users yet.");
+      $("#userRows").innerHTML = state.users.map((u) => {
+        const isMe = u._id === state.me._id;
+        return `
+        <tr>
+          <td><div class="name">${esc(u.name)}</div>${isMe ? `<div class="meta">You</div>` : ""}</td>
+          <td>${esc(u.email)}</td>
+          <td>${date(u.createdAt)}</td>
+          <td>${plural((u.wishlist || []).length, "item")}</td>
+          <td>
+            <select class="select select--sm" data-user="${esc(u._id)}" aria-label="Role" ${isMe ? "disabled title=\"You can't change your own role\"" : ""}>
+              <option value="customer" ${u.role === "customer" ? "selected" : ""}>Customer</option>
+              <option value="admin" ${u.role === "admin" ? "selected" : ""}>Admin</option>
+            </select>
+          </td>
+        </tr>`;
+      }).join("");
+    }
+
+    $("#userRows").addEventListener("change", async (e) => {
+      const sel = e.target.closest("[data-user]");
+      if (!sel) return;
+      const user = state.users.find((u) => u._id === sel.dataset.user);
+      const previous = user.role;
+      sel.disabled = true;
+      try {
+        const saved = await Admin.users.setRole(user._id, sel.value);
+        Object.assign(user, saved);
+        toast(`${saved.name} is now ${saved.role === "admin" ? "an admin" : "a customer"}`);
+        renderUsers();
+      } catch (err) {
+        sel.value = previous;
+        sel.disabled = false;
+        toast(err.message);
+      }
+    });
+
+    document.addEventListener("DOMContentLoaded", init);
+  </script>
+</body>
+</html>

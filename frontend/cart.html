@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Cart — CasaNest</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;1,500&family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🏡</text></svg>" />
+</head>
+<body>
+  <div id="site-header"></div>
+
+  <section class="page-hero">
+    <div class="wrap">
+      <p class="crumbs"><a href="index.html">Home</a> / <span>Cart</span></p>
+      <h1>Your Cart</h1>
+    </div>
+  </section>
+
+  <section class="section" style="padding-top:clamp(32px,4vw,56px)">
+    <div class="wrap" id="cartRoot"></div>
+  </section>
+
+  <div id="site-footer"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/api.js"></script>
+  <script src="js/store.js"></script>
+  <script>
+    // Local defaults; replaced by the server's real numbers (GET /orders/pricing)
+    // so the total shown here is exactly what checkout charges
+    let SHIPPING = 999, TAX_RATE = 0.18, coupons = COUPONS;
+
+    // Shipping address — kept between visits so returning customers don't retype it
+    const ADDRESS_KEY = "casanest_address";
+    const ADDRESS_FIELDS = [
+      ["fullName", "Full name", "name"], ["phone", "Phone", "tel"], ["line1", "Address", "street-address"],
+      ["city", "City", "address-level2"], ["state", "State", "address-level1"], ["postalCode", "PIN code", "postal-code"]
+    ];
+    let address = {};
+    try { address = JSON.parse(localStorage.getItem(ADDRESS_KEY) || "{}"); } catch (_) {}
+    const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+    function render() {
+      const root = $("#cartRoot");
+      if (!Store.cart.length) {
+        root.innerHTML = `
+          <div class="empty">
+            <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2"><path d="M6 8h12l-1 12H7L6 8Z"/><path d="M9 8V6a3 3 0 0 1 6 0v2"/></svg>
+            <h3>Your cart is empty</h3>
+            <p>Once you add something you love, it'll show up here.</p>
+            <a href="shop.html" class="btn btn--primary">Start shopping</a>
+          </div>`;
+        return;
+      }
+
+      const rows = Store.cart.map((item) => {
+        const p = getProduct(item.id);
+        if (!p) return "";
+        const line = p.price * item.qty;
+        return `
+        <div class="cart-row" data-id="${p.id}" data-color="${item.color || ""}">
+          <a href="product.html?id=${p.id}"><img src="${productImage(p)}" alt="${p.name}" onerror="this.onerror=null;this.src='${imgFallback(p.id)}'"></a>
+          <div>
+            <a href="product.html?id=${p.id}" class="name">${p.name}</a>
+            <div class="meta">${p.category}${item.color ? " · " + item.color : ""} · ${money(p.price)} each</div>
+            <div class="qty">
+              <button class="js-minus" aria-label="Decrease">−</button>
+              <input class="js-qty" type="number" value="${item.qty}" min="1" max="${MAX_PER_PRODUCT}" aria-label="Quantity">
+              <button class="js-plus" aria-label="Increase">+</button>
+            </div>
+          </div>
+          <div class="col-end" style="text-align:right">
+            <div class="line-price">${money(line)}</div>
+            <button class="remove js-remove">${icon("trash")} Remove</button>
+          </div>
+        </div>`;
+      }).join("");
+
+      const subtotal = Store.cartSubtotal();
+      const discount = subtotal * (couponPct / 100);
+      const taxed = subtotal - discount;
+      const tax = taxed * TAX_RATE;
+      const total = taxed + tax + SHIPPING;
+
+      root.innerHTML = `
+        <div class="cart-layout">
+          <div>
+            <div class="cart-items">${rows}</div>
+            <div style="margin-top:24px"><a href="shop.html" class="btn btn--ghost btn--sm">← Continue shopping</a></div>
+          </div>
+          <aside class="summary">
+            <h3>Order summary</h3>
+            <div class="coupon">
+              <input id="couponInput" placeholder="Coupon code" value="${couponCode}">
+              <button class="btn btn--primary btn--sm" id="applyCoupon">Apply</button>
+            </div>
+            <p class="coupon-msg ${couponMsgType}" id="couponMsg">${couponMsg}</p>
+            <div class="summary-row"><span>Subtotal</span><b>${money(subtotal)}</b></div>
+            ${discount ? `<div class="summary-row"><span>Discount (${couponPct}%)</span><b style="color:var(--success)">−${money(discount)}</b></div>` : ""}
+            <div class="summary-row"><span>Shipping</span><b>${money(SHIPPING)}</b></div>
+            <div class="summary-row"><span>Estimated GST (${Math.round(TAX_RATE * 100)}%)</span><b>${money(tax)}</b></div>
+            <div class="summary-total"><span>Total</span><span>${money(total)}</span></div>
+
+            <h3 style="font-size:18px;margin:26px 0 14px">Shipping address</h3>
+            <form id="addressForm" novalidate>
+              ${ADDRESS_FIELDS.map(([key, label, ac]) => `
+                <div class="field">
+                  <label for="addr-${key}">${label}</label>
+                  <input id="addr-${key}" data-addr="${key}" autocomplete="${ac}" value="${esc(address[key])}" required />
+                  <span class="err">Please enter your ${label.toLowerCase()}.</span>
+                </div>`).join("")}
+            </form>
+
+            <button class="btn btn--primary btn--block" id="checkout" style="margin-top:8px">Place order</button>
+            <p style="font-size:12.5px;color:var(--muted);text-align:center;margin-top:14px">${icon("shield")} Secure checkout</p>
+          </aside>
+        </div>`;
+
+      bindEvents();
+    }
+
+    // coupon state
+    let couponPct = 0, couponCode = "", couponMsg = "", couponMsgType = "";
+
+    function bindEvents() {
+      $$(".cart-row").forEach((row) => {
+        const id = row.dataset.id, color = row.dataset.color || null;
+        row.querySelector(".js-plus").addEventListener("click", () => {
+          const cur = +row.querySelector(".js-qty").value || 1;
+          Store.setQty(id, cur + 1, color); render();
+        });
+        row.querySelector(".js-minus").addEventListener("click", () => {
+          const cur = row.querySelector(".js-qty").value;
+          Store.setQty(id, Math.max(1, +cur - 1), color); render();
+        });
+        row.querySelector(".js-qty").addEventListener("change", (e) => { Store.setQty(id, Math.max(1, +e.target.value || 1), color); render(); });
+        row.querySelector(".js-remove").addEventListener("click", () => {
+          const p = getProduct(id); Store.removeFromCart(id, color); toast(`${p.name} removed`); render();
+        });
+      });
+
+      const applyBtn = $("#applyCoupon");
+      if (applyBtn) applyBtn.addEventListener("click", () => {
+        const code = $("#couponInput").value.trim().toUpperCase();
+        if (!code) { couponMsg = ""; couponMsgType = ""; return render(); }
+        if (coupons[code]) {
+          couponPct = coupons[code]; couponCode = code;
+          couponMsg = `Code applied — ${couponPct}% off!`; couponMsgType = "ok";
+        } else {
+          couponPct = 0; couponCode = code;
+          couponMsg = "That code isn't valid. Try CASA10."; couponMsgType = "err";
+        }
+        render();
+      });
+
+      $$("[data-addr]").forEach((el) => el.addEventListener("input", () => {
+        address[el.dataset.addr] = el.value;
+        try { localStorage.setItem(ADDRESS_KEY, JSON.stringify(address)); } catch (_) {}
+        el.closest(".field").classList.remove("invalid");
+      }));
+
+      const co = $("#checkout");
+      if (co) co.addEventListener("click", async () => {
+        if (!Store.cart.length) return;
+
+        if (typeof Auth === "undefined" || !Auth.isLoggedIn()) {
+          toast("Please sign in to check out");
+          setTimeout(() => location.href = "login.html", 900);
+          return;
+        }
+
+        let valid = true;
+        $$("[data-addr]").forEach((el) => {
+          const ok = !!el.value.trim();
+          el.closest(".field").classList.toggle("invalid", !ok);
+          if (!ok) valid = false;
+        });
+        if (!valid) {
+          toast("Please complete your shipping address");
+          $("#addressForm .field.invalid input").focus();
+          return;
+        }
+
+        co.disabled = true;
+        co.textContent = "Placing order…";
+        try {
+          const items = Store.cart.map((i) => ({ productId: i.id, qty: i.qty, color: i.color }));
+          const shippingAddress = Object.fromEntries(ADDRESS_FIELDS.map(([key]) => [key, address[key].trim()]));
+          const order = await Orders.place({ items, shippingAddress, couponCode });
+
+          Store.cart = [];
+          Store.save();
+          toast(`Order placed — total ${money(order.total)}`, "check");
+          setTimeout(() => { location.href = "index.html"; }, 1400);
+        } catch (err) {
+          co.disabled = false;
+          co.textContent = "Proceed to checkout";
+          toast(err.message || "Could not place order");
+        }
+      });
+    }
+
+    render();
+
+    // Redraw with live prices once the backend catalogue arrives, and drop
+    // lines for products that no longer exist (e.g. deleted in the admin panel)
+    document.addEventListener("products:updated", () => {
+      const before = Store.cart.length;
+      Store.cart = Store.cart.filter((i) => getProduct(i.id));
+      if (Store.cart.length !== before) {
+        Store.save();
+        toast("Some items are no longer available and were removed");
+      }
+      render();
+    });
+
+    Orders.pricing().then((pr) => {
+      SHIPPING = pr.shipping; TAX_RATE = pr.taxRate; coupons = pr.coupons;
+      if (couponCode) couponPct = coupons[couponCode] || 0; // re-check an applied code against the real list
+      render();
+    }).catch(() => { /* backend down — keep the local defaults */ });
+  </script>
+</body>
+</html>
